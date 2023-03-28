@@ -27,18 +27,23 @@ class SecretManager:
 
         self._log = logging.getLogger(self.__class__.__name__)
 
-    def do_derivation(self, salt:bytes, key:bytes)->bytes:
-        # Salt derivation
-        salt_derivation = PBKDF2HMAC(algorithm=hashes.SHA256(),
-                        length=self.SALT_LENGTH,
-                        salt=secrets.token_bytes(16),
-                        iterations=self.ITERATION)
+    def do_derivation(self, salt: bytes, key: bytes) -> bytes:
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=self.KEY_LENGTH,
+            salt=salt,
+            iterations=self.ITERATION,
+        )
+        derived_key = kdf.derive(key)
 
-        salt = salt_derivation.derive(salt)
+        return derived_key
 
+    def create(self) -> Tuple[bytes, bytes, bytes]:
+        token = secrets.token_bytes(self.TOKEN_LENGTH)
+        salt = secrets.token_bytes(self.SALT_LENGTH)
+        key = secrets.token_bytes(self.KEY_LENGTH)
 
-    def create(self)->Tuple[bytes, bytes, bytes]:
-        raise NotImplemented()
+        return salt, key, token
 
 
     def bin_to_b64(self, data:bytes)->str:
@@ -77,7 +82,8 @@ class SecretManager:
 
     def get_hex_token(self)->str:
         # Should return a string composed of hex symbole, regarding the token
-        raise NotImplemented()
+        with open(os.path.join(self._path, "token.bin"), "rb") as f:
+            TOKEN = f.read()
 
     def xorfiles(self, files:List[str])->None:
         # xor a list for fi
