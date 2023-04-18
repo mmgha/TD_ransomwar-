@@ -89,7 +89,7 @@ class Ransomware:
                 secret_manager.clean()
 
                 # Inform the user that the decryption was successful
-                print("Files decrypted")
+                print(DECRYPT_MESSAGE)
 
                 # Exit the ransomware
                 break
